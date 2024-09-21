@@ -103,4 +103,42 @@ impl BfMachine {
             program,
         })
     }
+
+    pub fn disassembly(&self) -> Vec<String> {
+        let mut disas_list = Vec::new();
+
+        for instr in &self.program {
+            let disas = match instr {
+                BfInstruction::IncreasePointerToRight => {
+                    format!("MOVE_R\t\t[{instr:?}]")
+                }
+                BfInstruction::IncreasePointerToLeft => {
+                    format!("MOVE_L\t\t[{instr:?}]")
+                }
+                BfInstruction::IncreaseCell => {
+                    format!("INC\t\t[{instr:?}]")
+                }
+                BfInstruction::DecreaseCell => {
+                    format!("DEC\t\t[{instr:?}]")
+                }
+                BfInstruction::LoopStart => {
+                    format!("LOOP_S\t\t[{instr:?}]")
+                }
+                BfInstruction::LoopEnd => {
+                    format!("LOOP_E\t\t[{instr:?}]")
+                }
+                BfInstruction::Getchar => {
+                    format!("GETC\t\t[{instr:?}]")
+                }
+                BfInstruction::Putchar => {
+                    format!("PUTC\t\t[{instr:?}]")
+                }
+                BfInstruction::NoInstruction => "".to_string(),
+            };
+
+            disas_list.push(disas);
+        }
+
+        disas_list
+    }
 }

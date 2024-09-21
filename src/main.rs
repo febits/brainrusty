@@ -13,14 +13,14 @@ fn main() {
         .to_vec();
 
     let bfm = BfMachine::parse(program_bytes).unwrap_or_else(|e| {
-        panic!("BfParseError: {e:?}");
+        eprintln!("BfParseError: {e:?}");
+        std::process::exit(1);
     });
 
-    println!("{:?}", bfm.program);
-    println!("{:?}", bfm.loop_lookup);
-
     if cli.disassembly {
-        println!("disassembly...");
+        for disas_str in &bfm.disassembly() {
+           println!("{disas_str}");
+        }
 
         std::process::exit(0);
     }
