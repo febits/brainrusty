@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 const TAPE_SIZE: usize = 30000;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum BfError {
     OutOfBounds,
     UnmatchedLoopStart,
@@ -23,6 +23,7 @@ pub enum BfInstruction {
     Putchar = 46,
 }
 
+#[derive(Default, Debug, PartialEq)]
 pub struct BfMachine {
     /// Program Counter
     pub pc: u16,
@@ -65,6 +66,10 @@ impl BfMachine {
             if instruction != BfInstruction::NoInstruction {
                 program.push(instruction);
             }
+        }
+
+        if program.is_empty() {
+            return Err(BfError::InvalidProgram);
         }
 
         let mut stack = Vec::new();
