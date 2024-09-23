@@ -56,4 +56,4 @@ cargo run --release -- ./samples/<program> -d
 ```
 
 > [!IMPORTANT]
-> It's essential to remember: this implementation is not fully-featured, but key-features are implemented. I do not certify that all brainfuck programs in the world will run perfectly here. Certain programs require specific features in interpreter.
+> I do not certify that all brainfuck programs in the world will run perfectly here. Certain programs require specific features of interpreter.
