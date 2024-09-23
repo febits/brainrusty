@@ -1,6 +1,7 @@
 use std::collections::HashMap;
+use std::io::{self, Write};
 
-const TAPE_SIZE: usize = 30000;
+pub const TAPE_SIZE: usize = 30000;
 
 #[derive(Debug, PartialEq)]
 pub enum BfError {
@@ -10,42 +11,33 @@ pub enum BfError {
     InvalidProgram,
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Copy, Clone)]
 pub enum BfInstruction {
-    NoInstruction = 255,
-    IncreasePointerToRight = 62,
-    IncreasePointerToLeft = 60,
-    IncreaseCell = 43,
-    DecreaseCell = 45,
-    LoopStart = 91,
-    LoopEnd = 93,
-    Getchar = 44,
-    Putchar = 46,
+    NoInstruction,
+    MovePointerToRight,
+    MovePointerToLeft,
+    IncreaseCell,
+    DecreaseCell,
+    LoopStart,
+    LoopEnd,
+    Getchar,
+    Putchar,
 }
 
 #[derive(Default, Debug, PartialEq)]
 pub struct BfMachine {
-    /// Program Counter
     pub pc: u16,
-
-    /// Tape pointer
     pub tp: u16,
-
-    /// The memory tape
     pub tape: Vec<u8>,
-
-    /// The program itself
     pub program: Vec<BfInstruction>,
-
-    /// The lookup loop
     pub loop_lookup: HashMap<usize, usize>,
 }
 
-impl Into<BfInstruction> for u8 {
-    fn into(self) -> BfInstruction {
-        match self {
-            62 => BfInstruction::IncreasePointerToRight,
-            60 => BfInstruction::IncreasePointerToLeft,
+impl From<u8> for BfInstruction {
+    fn from(val: u8) -> BfInstruction {
+        match val {
+            62 => BfInstruction::MovePointerToRight,
+            60 => BfInstruction::MovePointerToLeft,
             43 => BfInstruction::IncreaseCell,
             45 => BfInstruction::DecreaseCell,
             91 => BfInstruction::LoopStart,
@@ -54,6 +46,50 @@ impl Into<BfInstruction> for u8 {
             46 => BfInstruction::Putchar,
             _ => BfInstruction::NoInstruction,
         }
+    }
+}
+
+pub trait Disassembly {
+    fn disassembly(&self) -> Vec<String>;
+}
+
+impl Disassembly for BfMachine {
+    fn disassembly(&self) -> Vec<String> {
+        let mut disas_list = Vec::new();
+
+        for instr in &self.program {
+            let disas = match instr {
+                BfInstruction::MovePointerToRight => {
+                    format!("MOVE_R\t\t[{instr:?}]")
+                }
+                BfInstruction::MovePointerToLeft => {
+                    format!("MOVE_L\t\t[{instr:?}]")
+                }
+                BfInstruction::IncreaseCell => {
+                    format!("INC\t\t[{instr:?}]")
+                }
+                BfInstruction::DecreaseCell => {
+                    format!("DEC\t\t[{instr:?}]")
+                }
+                BfInstruction::LoopStart => {
+                    format!("LOOP_S\t\t[{instr:?}]")
+                }
+                BfInstruction::LoopEnd => {
+                    format!("LOOP_E\t\t[{instr:?}]")
+                }
+                BfInstruction::Getchar => {
+                    format!("GETC\t\t[{instr:?}]")
+                }
+                BfInstruction::Putchar => {
+                    format!("PUTC\t\t[{instr:?}]")
+                }
+                BfInstruction::NoInstruction => "".to_string(),
+            };
+
+            disas_list.push(disas);
+        }
+
+        disas_list
     }
 }
 
@@ -104,41 +140,72 @@ impl BfMachine {
         })
     }
 
-    pub fn disassembly(&self) -> Vec<String> {
-        let mut disas_list = Vec::new();
+    pub fn exec(&mut self) -> Result<(), BfError> {
+        while self.program.len() > self.pc as usize {
+            let instr = self.program[self.pc as usize];
 
-        for instr in &self.program {
-            let disas = match instr {
-                BfInstruction::IncreasePointerToRight => {
-                    format!("MOVE_R\t\t[{instr:?}]")
+            match instr {
+                BfInstruction::MovePointerToRight => {
+                    if self.tp + 1 > TAPE_SIZE as u16 {
+                        return Err(BfError::OutOfBounds);
+                    }
+
+                    self.tp += 1;
                 }
-                BfInstruction::IncreasePointerToLeft => {
-                    format!("MOVE_L\t\t[{instr:?}]")
+                BfInstruction::MovePointerToLeft => {
+                    if self.tp == 0 {
+                        return Err(BfError::OutOfBounds);
+                    }
+
+                    self.tp -= 1;
                 }
                 BfInstruction::IncreaseCell => {
-                    format!("INC\t\t[{instr:?}]")
+                    let tv = self.tape[self.tp as usize];
+                    self.tape[self.tp as usize] = tv.wrapping_add(1);
                 }
                 BfInstruction::DecreaseCell => {
-                    format!("DEC\t\t[{instr:?}]")
+                    let tv = self.tape[self.tp as usize];
+                    self.tape[self.tp as usize] = tv.wrapping_sub(1);
                 }
                 BfInstruction::LoopStart => {
-                    format!("LOOP_S\t\t[{instr:?}]")
+                    if self.tape[self.tp as usize] == 0 {
+                        let new_pc = self.loop_lookup.get(&(self.pc as usize));
+
+                        self.pc = *new_pc.unwrap() as u16;
+                        continue;
+                    }
                 }
                 BfInstruction::LoopEnd => {
-                    format!("LOOP_E\t\t[{instr:?}]")
+                    if self.tape[self.tp as usize] != 0 {
+                        let new_pc = self.loop_lookup.get(&(self.pc as usize));
+
+                        self.pc = *new_pc.unwrap() as u16;
+                        continue;
+                    }
                 }
                 BfInstruction::Getchar => {
-                    format!("GETC\t\t[{instr:?}]")
+                    let mut buf = String::new();
+                    io::stdin()
+                        .read_line(&mut buf)
+                        .expect("Couldn't read from stdin");
+
+                    if !buf.is_empty() {
+                        let c = buf.as_bytes().first().unwrap();
+                        self.tape[self.tp as usize] = *c;
+                    }
                 }
                 BfInstruction::Putchar => {
-                    format!("PUTC\t\t[{instr:?}]")
+                    let _ = io::stdout()
+                        .write(&[self.tape[self.tp as usize]])
+                        .expect("Couldn't print to stdout");
                 }
-                BfInstruction::NoInstruction => "".to_string(),
-            };
 
-            disas_list.push(disas);
+                _ => (),
+            }
+
+            self.pc += 1;
         }
 
-        disas_list
+        Ok(())
     }
 }

@@ -1,4 +1,4 @@
-use brainrusty::bfmachine::BfMachine;
+use brainrusty::bfmachine::{BfMachine, Disassembly};
 use brainrusty::cliargs::Cli;
 
 use clap::Parser;
@@ -12,18 +12,24 @@ fn main() {
         .as_bytes()
         .to_vec();
 
-    let bfm = BfMachine::parse(program_bytes).unwrap_or_else(|e| {
-        eprintln!("BfParseError: {e:?}");
-        std::process::exit(1);
-    });
+    let mut bfm = match BfMachine::parse(program_bytes) {
+        Ok(bfm) => bfm,
+        Err(e) => {
+            eprintln!("BfParseError: {e:?}");
+            std::process::exit(1);
+        }
+    };
 
     if cli.disassembly {
         for disas_str in &bfm.disassembly() {
-           println!("{disas_str}");
+            println!("{disas_str}");
         }
 
         std::process::exit(0);
     }
 
-    println!("normal...");
+    if let Err(res) = bfm.exec() {
+        eprintln!("BfExecError: {res:?}");
+        std::process::exit(1);
+    }
 }
